@@ -1,6 +1,48 @@
+## 전체적인 진행 로직
+- 가이드 라인 내에 얼굴을 제대로 위치하고 3초 지나면 데이터 전송 시작
+- 매 프레임당 랜드마크를 저장하고 100ms마다 축적된 랜드마크 data를 보냄
+- 정면을 시작으로 좌, 우 한번씩 인식시키면 전송 끝남
+- 백엔드 api 연결 로직 대신 현재는 모든 전송이 끝난후 해당 data json파일로 저장시킴
+- 원래는 +-75도로 정했지만 그것도 꽤 많이 고개를 많이 돌려야해서 현재는 30도로 조정해놈
 
+## 현재 json data
+- 100ms당 전송 진행
+- 아래의 형식처럼 data 저장
+```json
+ "100": {
+    "seq": "전송된 프레임 순번 1부터 시작",
+    "ts": "Data.now 기준 현재 실제시간",
+    "elapsedMs": "전송시작 기준 누적 경과시간",
+    "status": "포즈 분류 결과 front/left/right/none",
+    "inGuide": "얼굴이 가이드 안에 들어와있는지",
+    "progress": {
+      "leftSeen": "전송 시작 후 왼쪽 감지 이력",
+      "rightSeen": "전송 시작 후 오른쪽 감지 이력"
+    },
+    "frame": {
+      "t": "performance.now()기반의 페이지 기준 상대 시간",
+      "videoW": "비디오 프레임 해상도",
+      "videoH": "비디오 프레임 해상도",
+      "faceFound": "해당 시점에 얼굴 랜드마크가 감지 되었는지",
+      "pose": {
+        "pitch": "고개 상하 회전 각도",
+        "yaw": "고개 좌우 회전 각도",
+        "roll": "고개 기울기 회전 각도"
+      },
+      "landmarks": ["얼굴정규화한 좌표들"]}}
 
-## 정면 인식 로직
-1. outputFacialTransformationMatrixes: true로 하면 얼굴 인식 후 매 프레임마다 4x4행렬값이 나온다
-2. 해당 행렬의 R데이터(회전관련) 값을 Yaw, Pitch, Roll로 변환한다.
-3. 3개의 값이 모두 0근처여야 정면이라고 판별한다
+```
+
+## 파일별 역할
+- components/FaceLandmarks.tsx: 카메라/모델 훅을 초기화하고 트래킹 루프와 전송 플로우 훅을 조립해 View에 props로 내려주는 컨테이너다.
+- components/FaceLandmarksView.tsx: video/canvas/가이드 오버레이와 상태 텍스트를 렌더링하는 UI 전용 컴포넌트다.
+- components/AlignmentGuide.tsx: 정면/좌/우 상태에 따라 가이드 라인 및 안내 오버레이를 그리는 컴포넌트다.
+- hooks/useUserMedia.ts: getUserMedia로 카메라 스트림을 연결하고 video 엘리먼트에 바인딩하는 훅이다.
+- hooks/useFaceLandmarker.ts: MediaPipe FaceLandmarker 모델/wasm을 로드하고 landmarker 인스턴스를 제공하는 훅이다.
+- hooks/useFaceTrackingLoop.ts: requestAnimationFrame 루프로 매 프레임 추론을 수행하고 inGuide/status를 계산하며 캔버스에 랜드마크를 그리는 훅이다.
+- hooks/useMockTransmitFlow.ts: 정면 3초 유지 시 전송을 시작하고 100ms마다 payload를 누적·mock 전송하며 좌/우 1회 인식 시 종료하는 훅이다.
+- lib/face/types.ts: PoseStatus, PoseAngles, FaceFrame 등 얼굴 트래킹/전송에 쓰는 공용 타입을 정의한다.
+- lib/face/guide.ts: 랜드마크가 가이드 타원 영역 안에 들어오는지 판정하는 로직과 관련 상수를 담는다.
+- lib/face/pose.ts: 변환 행렬로부터 yaw/pitch/roll을 계산하고 포즈를 front/left/right/none으로 분류하는 유틸이다.
+- lib/face/draw.ts: 랜드마크 점들을 캔버스에 렌더링하는 디버그 드로잉 유틸이다.
+- lib/face/downloadJson.ts: 누적된 로그 객체를 JSON 파일로 만들어 브라우저 다운로드로 내보내는 유틸이다.
