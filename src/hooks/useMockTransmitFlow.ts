@@ -82,7 +82,6 @@ export function useMockTransmitFlow({
     }
   }, [phase, status, inGuide]);
 
-  // 3) sending 동안 100ms마다 mock 전송 + 로그 누적
   useEffect(() => {
     if (phase !== "sending") {
       if (sendTimerRef.current) window.clearInterval(sendTimerRef.current);
@@ -94,7 +93,7 @@ export function useMockTransmitFlow({
       const frame = frameRef.current;
       seqRef.current += 1;
 
-      const elapsed = seqRef.current * 100; // ✅ "100", "200", ... 키로 사용
+      const elapsed = seqRef.current * 1000; // ✅ "100", "200", ... 키로 사용
 
       const payload = {
         seq: seqRef.current,
@@ -118,12 +117,10 @@ export function useMockTransmitFlow({
           : null,
       };
 
-      // ✅ 기존 mock 전송 로그
       console.log("[MOCK] POST /face-stream", payload);
 
-      // ✅ 파일로 만들 데이터 누적
       logRef.current[String(elapsed)] = payload;
-    }, 100);
+    }, 1000);
 
     return () => {
       if (sendTimerRef.current) window.clearInterval(sendTimerRef.current);
