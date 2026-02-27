@@ -33,6 +33,7 @@ export function useFaceLandmarker({
           baseOptions: { modelAssetPath },
           runningMode: "VIDEO",
           numFaces,
+          outputFacialTransformationMatrixes: true,
         });
 
         if (cancelled) {
