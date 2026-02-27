@@ -4,6 +4,15 @@ import { downloadJsonFile } from "@/lib/face/downloadJson";
 
 export type TxPhase = "idle" | "sending" | "done";
 
+type FramePayload = {
+  t: number;
+  status: PoseStatus;
+  inGuide: boolean;
+  faceFound: boolean;
+  pose: FaceFrame["pose"];
+  landmarks: number[][]; // [[x,y,z], ...] (모든 점)
+};
+
 export function useMockTransmitFlow({
   userId,
   status,
@@ -22,20 +31,22 @@ export function useMockTransmitFlow({
   const frontSinceRef = useRef<number | null>(null);
   const leftSeenRef = useRef(false);
   const rightSeenRef = useRef(false);
-  const seqRef = useRef(0);
 
-  const guardTimerRef = useRef<ReturnType<typeof window.setInterval> | null>(null);
-  const sendTimerRef = useRef<ReturnType<typeof window.setInterval> | null>(null);
-
-  // ✅ 로그 누적용
+  // ✅ 기록용
   const logRef = useRef<Record<string, any>>({});
-  const sendingStartRef = useRef<number | null>(null);
+  const bufferRef = useRef<FramePayload[]>([]);
+  const startPerfRef = useRef<number | null>(null);
+  const bucketIndexRef = useRef(0);
+
+  // ✅ 타이머/RAF
+  const guardTimerRef = useRef<ReturnType<typeof window.setInterval> | null>(null);
+  const flushTimerRef = useRef<ReturnType<typeof window.setInterval> | null>(null);
+  const rafIdRef = useRef<number | null>(null);
 
   const downloadLog = () => {
     const filename = `face_stream_${userId}_${new Date()
       .toISOString()
       .replaceAll(":", "-")}.json`;
-
     downloadJsonFile(logRef.current, filename);
   };
 
@@ -50,14 +61,19 @@ export function useMockTransmitFlow({
         if (frontSinceRef.current == null) frontSinceRef.current = now;
 
         if (now - frontSinceRef.current >= 3000) {
+          // ✅ sending 시작
           setPhase("sending");
           leftSeenRef.current = false;
           rightSeenRef.current = false;
 
           // ✅ 로그 초기화
-          seqRef.current = 0;
-          sendingStartRef.current = performance.now();
-          logRef.current = { userid: userId };
+          startPerfRef.current = performance.now();
+          bucketIndexRef.current = 0;
+          bufferRef.current = [];
+          logRef.current = {
+            userid: userId,
+            startedAtTs: Date.now(),
+          };
         }
       } else {
         frontSinceRef.current = null;
@@ -82,58 +98,98 @@ export function useMockTransmitFlow({
     }
   }, [phase, status, inGuide]);
 
+  // 3) ✅ 프레임마다 저장(버퍼에 쌓기) — rAF
   useEffect(() => {
-    if (phase !== "sending") {
-      if (sendTimerRef.current) window.clearInterval(sendTimerRef.current);
-      sendTimerRef.current = null;
-      return;
-    }
+    if (phase !== "sending") return;
 
-    sendTimerRef.current = window.setInterval(() => {
-      const frame = frameRef.current;
-      seqRef.current += 1;
+    const tick = () => {
+      const f = frameRef.current;
+      if (f) {
+        bufferRef.current.push({
+          t: f.t,
+          status,
+          inGuide,
+          faceFound: f.faceFound,
+          pose: f.pose,
+          landmarks: f.landmarks.map((p) => [p.x, p.y, p.z]),
+        });
+      }
 
-      const elapsed = seqRef.current * 1000; // ✅ "100", "200", ... 키로 사용
+      rafIdRef.current = requestAnimationFrame(tick);
+    };
 
-      const payload = {
-        seq: seqRef.current,
-        ts: Date.now(),
-        elapsedMs: elapsed,
-        status,
-        inGuide,
+    rafIdRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    };
+  }, [phase, frameRef, status, inGuide]);
+
+  // 4) ✅ 1초마다 JSON 객체에 “버킷”으로 추가(flush)
+  useEffect(() => {
+    if (phase !== "sending") return;
+
+    flushTimerRef.current = window.setInterval(() => {
+      bucketIndexRef.current += 1;
+      const key = String(bucketIndexRef.current * 1000); // "1000","2000",...
+
+      const chunk = bufferRef.current;
+      bufferRef.current = [];
+
+      // 1초 동안 모인 프레임들을 한 덩어리로 추가
+      logRef.current[key] = {
+        bucketMs: Number(key),
+        frameCount: chunk.length,
         progress: {
           leftSeen: leftSeenRef.current,
           rightSeen: rightSeenRef.current,
         },
-        frame: frame
-          ? {
-              t: frame.t,
-              videoW: frame.videoW,
-              videoH: frame.videoH,
-              faceFound: frame.faceFound,
-              pose: frame.pose,
-              landmarks: frame.landmarks.map((p) => [p.x, p.y, p.z]),
-            }
-          : null,
+        frames: chunk,
       };
 
-      console.log("[MOCK] POST /face-stream", payload);
-
-      logRef.current[String(elapsed)] = payload;
+      console.log(`[MOCK] flushed bucket ${key}ms (frames=${chunk.length})`);
     }, 1000);
 
     return () => {
-      if (sendTimerRef.current) window.clearInterval(sendTimerRef.current);
-      sendTimerRef.current = null;
+      if (flushTimerRef.current) window.clearInterval(flushTimerRef.current);
+      flushTimerRef.current = null;
     };
-  }, [phase, frameRef, status, inGuide]);
+  }, [phase]);
 
-  // 4) done 시 다운로드(옵션)
+  // 5) done 시: 남은 버퍼 flush + 다운로드
   useEffect(() => {
     if (phase !== "done") return;
 
-    if (sendTimerRef.current) window.clearInterval(sendTimerRef.current);
-    sendTimerRef.current = null;
+    // stop timers
+    if (flushTimerRef.current) window.clearInterval(flushTimerRef.current);
+    flushTimerRef.current = null;
+
+    if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+    rafIdRef.current = null;
+
+    // ✅ 마지막 남은 프레임 버퍼도 flush
+    if (bufferRef.current.length > 0) {
+      bucketIndexRef.current += 1;
+      const key = String(bucketIndexRef.current * 1000);
+
+      const chunk = bufferRef.current;
+      bufferRef.current = [];
+
+      logRef.current[key] = {
+        bucketMs: Number(key),
+        frameCount: chunk.length,
+        progress: {
+          leftSeen: leftSeenRef.current,
+          rightSeen: rightSeenRef.current,
+        },
+        frames: chunk,
+      };
+
+      console.log(`[MOCK] flushed final bucket ${key}ms (frames=${chunk.length})`);
+    }
+
+    logRef.current.endedAtTs = Date.now();
 
     if (autoDownloadOnDone) downloadLog();
   }, [phase, autoDownloadOnDone]);
@@ -148,6 +204,6 @@ export function useMockTransmitFlow({
         : "",
     leftSeen: leftSeenRef.current,
     rightSeen: rightSeenRef.current,
-    downloadLog, // ✅ 수동 다운로드 버튼도 가능
+    downloadLog,
   };
 }

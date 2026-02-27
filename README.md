@@ -11,27 +11,28 @@
 - 1000ms당 전송 진행
 - 아래의 형식처럼 data 저장
 ```json
- "1000": {
-    "seq": "전송된 프레임 순번 1부터 시작",
-    "ts": "Data.now 기준 현재 실제시간",
-    "elapsedMs": "전송시작 기준 누적 경과시간",
-    "status": "포즈 분류 결과 front/left/right/none",
-    "inGuide": "얼굴이 가이드 안에 들어와있는지",
-    "progress": {
-      "leftSeen": "전송 시작 후 왼쪽 감지 이력",
-      "rightSeen": "전송 시작 후 오른쪽 감지 이력"
-    },
-    "frame": {
+"1000": {
+  "bucketMs": "전송 시작 기준 이 버킷의 경과 시간(ms)이며 1000ms 단위",
+  "frameCount": "해당 1초 구간(버킷) 안에 기록된 프레임",
+  "progress": {
+    "leftSeen": "전송 시작 후 왼쪽 감지 여부",
+    "rightSeen": "전송 시작 후 오른쪽 감지 여부"
+  },
+  "frames": [
+    {
       "t": "performance.now()기반의 페이지 기준 상대 시간",
-      "videoW": "비디오 프레임 해상도",
-      "videoH": "비디오 프레임 해상도",
+      "status": "포즈 분류 결과 front/left/right/none",
+      "inGuide": "얼굴이 가이드 안에 들어와있는지",
       "faceFound": "해당 시점에 얼굴 랜드마크가 감지 되었는지",
       "pose": {
         "pitch": "고개 상하 회전 각도",
         "yaw": "고개 좌우 회전 각도",
         "roll": "고개 기울기 회전 각도"
       },
-      "landmarks": ["얼굴정규화한 좌표들"]}}
+      "landmarks": "얼굴 랜드마크 전체 점들의 정규화 좌표 배열"
+    }
+  ]
+}
 
 ```
 
