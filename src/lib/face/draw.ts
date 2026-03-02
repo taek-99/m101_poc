@@ -12,11 +12,12 @@ export function drawLandmarks(
   ctx.fillStyle = "rgba(0, 255, 0, 0.9)";
   const r = 2;
 
+  ctx.beginPath();
   for (const p of landmarks) {
     const x = p.x * canvas.width;
     const y = p.y * canvas.height;
-    ctx.beginPath();
+    ctx.moveTo(x + r, y);
     ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
   }
+  ctx.fill();
 }

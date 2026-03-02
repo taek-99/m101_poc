@@ -6,17 +6,20 @@ function radToDeg(r: number) {
   return (r * 180) / Math.PI;
 }
 
+const _mat4 = new THREE.Matrix4();
+const _euler = new THREE.Euler();
+
 export function getHeadPoseFromMatrix(
   matrixData: ArrayLike<number>,
   yawSign = 1
 ): PoseAngles {
-  const m = new THREE.Matrix4().fromArray(Array.from(matrixData));
-  const e = new THREE.Euler().setFromRotationMatrix(m);
+  _mat4.fromArray(matrixData as number[]);
+  _euler.setFromRotationMatrix(_mat4);
 
   return {
-    pitch: radToDeg(e.x),
-    yaw: radToDeg(e.y) * yawSign,
-    roll: radToDeg(e.z),
+    pitch: radToDeg(_euler.x),
+    yaw: radToDeg(_euler.y) * yawSign,
+    roll: radToDeg(_euler.z),
   };
 }
 

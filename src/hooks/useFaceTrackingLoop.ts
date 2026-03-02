@@ -10,6 +10,8 @@ type LandmarkerLike = {
   detectForVideo: (video: HTMLVideoElement, ts: number) => any;
 };
 
+const FRAME_INTERVAL = 1000 / 30;
+
 export function useFaceTrackingLoop({
   videoRef,
   canvasRef,
@@ -28,6 +30,7 @@ export function useFaceTrackingLoop({
   frameRef?: React.RefObject<FaceFrame | null>;
 }) {
   const rafRef = useRef<number | null>(null);
+  const lastDetectRef = useRef(0);
   const lastUpdateRef = useRef(0);
 
   const [status, setStatus] = useState<PoseStatus>("none");
@@ -50,6 +53,13 @@ export function useFaceTrackingLoop({
           if (canvas.height !== h) canvas.height = h;
 
           const now = performance.now();
+
+          if (now - lastDetectRef.current < FRAME_INTERVAL) {
+            rafRef.current = requestAnimationFrame(loop);
+            return;
+          }
+          lastDetectRef.current = now;
+
           const res = landmarker.detectForVideo(video, now);
           const lms = (res.faceLandmarks?.[0] ?? null) as NormalizedLandmark[] | null;
 

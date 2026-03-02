@@ -1,4 +1,4 @@
-type PoseStatus = "none" | "front" | "left" | "right";
+import type { PoseStatus } from "@/lib/face/types";
 
 type Props = {
   className?: string;

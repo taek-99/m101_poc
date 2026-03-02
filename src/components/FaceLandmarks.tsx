@@ -11,7 +11,6 @@ export default function FaceLandmarks() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // ✅ 최신 프레임 저장 ref
   const frameRef = useRef<FaceFrame | null>(null);
 
   const modelPath = useMemo(
@@ -33,7 +32,6 @@ export default function FaceLandmarks() {
     enabled: cam.ready && mp.ready,
     yawSign: 1,
 
-    // ✅ 추가
     frameRef,
   });
 
