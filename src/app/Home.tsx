@@ -1,4 +1,4 @@
-import FaceLandmarks from "@/components/FaceLandmarks";
+import FaceLandmarks from "@/components/post/FaceLandmarks";
 
 export default function Home() {
   return (

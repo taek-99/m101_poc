@@ -2,7 +2,7 @@
 import type { RefObject } from "react";
 import AlignmentGuide from "./AlignmentGuide";
 import type { PoseStatus } from "@/lib/face/types";
-import type { TxPhase } from "@/hooks/useMockTransmitFlow";
+import type { TxPhase } from "@/hooks/post/useMockTransmitFlow";
 
 export default function FaceLandmarksView({
   videoRef,

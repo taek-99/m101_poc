@@ -1,14 +1,14 @@
-import Home from "@/app/Home"
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Bald from "./app/Bald";
+import Home from "./app/Home";
 
-
-function App() {
-
+export default function App() {
   return (
-    <>
-      <Home/>
-      
-    </>
-  )
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/bald" element={<Bald />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
-
-export default App

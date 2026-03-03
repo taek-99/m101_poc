@@ -1,10 +1,10 @@
 // components/FaceLandmarks.tsx
 import { useMemo, useRef } from "react";
-import { useUserMedia } from "@/hooks/useUserMedia";
-import { useFaceLandmarker } from "@/hooks/useFaceLandmarker";
-import { useFaceTrackingLoop } from "@/hooks/useFaceTrackingLoop";
-import { useMockTransmitFlow } from "@/hooks/useMockTransmitFlow";
-import FaceLandmarksView from "@/components/FaceLandmarksView";
+import { useUserMedia } from "@/hooks/post/useUserMedia";
+import { useFaceLandmarker } from "@/hooks/post/useFaceLandmarker";
+import { useFaceTrackingLoop } from "@/hooks/post/useFaceTrackingLoop";
+import { useMockTransmitFlow } from "@/hooks/post/useMockTransmitFlow";
+import FaceLandmarksView from "@/components/post/FaceLandmarksView";
 import type { FaceFrame } from "@/lib/face/types";
 
 export default function FaceLandmarks() {
