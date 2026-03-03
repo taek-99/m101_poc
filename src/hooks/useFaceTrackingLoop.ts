@@ -10,6 +10,32 @@ type LandmarkerLike = {
   detectForVideo: (video: HTMLVideoElement, ts: number) => any;
 };
 
+const FRAME_INTERVAL = 1000 / 30;
+
+function syncCanvasSize(video: HTMLVideoElement, canvas: HTMLCanvasElement) {
+  if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
+  if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
+}
+
+function updateFrameRef(
+  frameRef: React.RefObject<FaceFrame | null> | undefined,
+  now: number,
+  w: number,
+  h: number,
+  lms: NormalizedLandmark[] | null,
+  pose: FaceFrame["pose"]
+) {
+  if (!frameRef) return;
+  frameRef.current = {
+    t: now,
+    videoW: w,
+    videoH: h,
+    faceFound: !!lms,
+    landmarks: lms ?? [],
+    pose,
+  };
+}
+
 export function useFaceTrackingLoop({
   videoRef,
   canvasRef,
@@ -28,6 +54,7 @@ export function useFaceTrackingLoop({
   frameRef?: React.RefObject<FaceFrame | null>;
 }) {
   const rafRef = useRef<number | null>(null);
+  const lastDetectRef = useRef(0);
   const lastUpdateRef = useRef(0);
 
   const [status, setStatus] = useState<PoseStatus>("none");
@@ -41,62 +68,44 @@ export function useFaceTrackingLoop({
     if (!enabled || !video || !canvas || !landmarker) return;
 
     const loop = () => {
-      if (video.readyState >= 2) {
-        const w = video.videoWidth;
-        const h = video.videoHeight;
+      rafRef.current = requestAnimationFrame(loop);
 
-        if (w > 0 && h > 0) {
-          if (canvas.width !== w) canvas.width = w;
-          if (canvas.height !== h) canvas.height = h;
+      if (video.readyState < 2) return;
 
-          const now = performance.now();
-          const res = landmarker.detectForVideo(video, now);
-          const lms = (res.faceLandmarks?.[0] ?? null) as NormalizedLandmark[] | null;
+      const w = video.videoWidth;
+      const h = video.videoHeight;
+      if (w <= 0 || h <= 0) return;
 
-          const ftm = res.facialTransformationMatrixes?.[0]?.data;
-          const pose = ftm ? getHeadPoseFromMatrix(ftm, yawSign) : null;
+      const now = performance.now();
+      if (now - lastDetectRef.current < FRAME_INTERVAL) return;
+      lastDetectRef.current = now;
 
-          if (frameRef) {
-            const next: FaceFrame = {
-              t: now,
-              videoW: w,
-              videoH: h,
-              faceFound: !!lms,
-              landmarks: lms ?? [],
-              pose,
-            };
-            frameRef.current = next;
-          }
+      syncCanvasSize(video, canvas);
 
-          if (lms) {
-            const guideOk = isFaceInsideGuide(lms);
+      const res = landmarker.detectForVideo(video, now);
+      const lms = (res.faceLandmarks?.[0] ?? null) as NormalizedLandmark[] | null;
 
-            if (now - lastUpdateRef.current > 120) {
-              setInGuide(guideOk);
+      const ftm = res.facialTransformationMatrixes?.[0]?.data;
+      const pose = ftm ? getHeadPoseFromMatrix(ftm, yawSign) : null;
 
-              if (!guideOk) {
-                setStatus("none");
-              } else {
-                if (ftm) setStatus(classifyPose(pose!));
-                else setStatus("none");
-              }
+      updateFrameRef(frameRef, now, w, h, lms, pose);
 
-              lastUpdateRef.current = now;
-            }
-
-            drawLandmarks(canvas, lms);
-          } else {
-            if (now - lastUpdateRef.current > 200) {
-              setInGuide(false);
-              setStatus("none");
-              lastUpdateRef.current = now;
-            }
-            drawLandmarks(canvas, []);
-          }
+      if (lms) {
+        const guideOk = isFaceInsideGuide(lms);
+        if (now - lastUpdateRef.current > 120) {
+          setInGuide(guideOk);
+          setStatus(guideOk && ftm && pose ? classifyPose(pose) : "none");
+          lastUpdateRef.current = now;
+        }
+      } else {
+        if (now - lastUpdateRef.current > 200) {
+          setInGuide(false);
+          setStatus("none");
+          lastUpdateRef.current = now;
         }
       }
 
-      rafRef.current = requestAnimationFrame(loop);
+      drawLandmarks(canvas, lms ?? []);
     };
 
     rafRef.current = requestAnimationFrame(loop);
