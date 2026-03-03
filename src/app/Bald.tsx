@@ -8,6 +8,7 @@ import FaceLandmarksViewBald from "@/components/bald/FaceLandmarksViewBald";
 export default function FaceLandmarks() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const threeCanvasRef = useRef<HTMLCanvasElement | null>(null); // ✅ 추가
 
   const modelPath = useMemo(
     () => `${import.meta.env.BASE_URL}models/face_landmarker.task`,
@@ -21,14 +22,20 @@ export default function FaceLandmarks() {
     wasmBaseUrl: "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm",
   });
 
-  // ✅ tracking loop만 돌리면 됨
   useFaceTrackingLoopBald({
     videoRef,
     canvasRef,
+    threeCanvasRef, // ✅ 추가
     landmarkerRef: mp.landmarkerRef,
     enabled: cam.ready && mp.ready,
     yawSign: 1,
   });
 
-  return <FaceLandmarksViewBald videoRef={videoRef} canvasRef={canvasRef} />;
+  return (
+    <FaceLandmarksViewBald
+      videoRef={videoRef}
+      canvasRef={canvasRef}
+      threeCanvasRef={threeCanvasRef} // ✅ 추가
+    />
+  );
 }
