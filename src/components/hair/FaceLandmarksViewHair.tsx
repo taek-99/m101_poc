@@ -3,6 +3,14 @@ import type { RefObject } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useOverlayTransform, type NLM } from "@/hooks/hair/useOverLayTransform";
 
+const hairMeta = {
+  img: "/hair/0.png",
+  size: { w: 501, h: 457 },
+  anchor: { x: 250, y: 280 }, // 일단 임시(아래 설명)
+  baseEyePx: 220,
+  offsetPx: { x: -900, y: 40 },
+};
+
 export default function FaceLandmarksViewHair({
   videoRef,
   canvasRef,
@@ -33,9 +41,21 @@ export default function FaceLandmarksViewHair({
     wrapRef,
     videoRef,
     landmarks,
-    baseEyePx: 260,
-    pngAnchor: { x: 512, y: 420 },
-});
+    baseEyePx: hairMeta.baseEyePx, // 220이든 260이든 너가 기준으로 잡아
+    pngAnchor: hairMeta.anchor,
+    offsetPx: hairMeta.offsetPx, 
+  });
+const hairPos = useMemo(() => {
+  if (!overlayTransform) return null;
+
+  // overlayTransform = "translate(${tx}px, ${ty}px) rotate(...) scale(...)"
+  const m = overlayTransform.match(
+    /translate\(\s*([-0-9.]+)px,\s*([-0-9.]+)px\)/i
+  );
+  if (!m) return null;
+
+  return { x: Number(m[1]), y: Number(m[2]) };
+}, [overlayTransform]);
 
   const samplePoints = [
     { i: 1, label: "코" },
@@ -75,19 +95,32 @@ export default function FaceLandmarksViewHair({
           className="h-auto w-full -scale-x-100"
         />
 
-        {overlaySrc && overlayOk && (
+        {overlaySrc && overlayOk && overlayTransform && (
+        <div
+          className="pointer-events-none absolute left-0 top-0 -scale-x-100"
+          style={{ transformOrigin: "0 0", transform: overlayTransform }}
+        >
           <img
-            src={overlaySrc}
+            src={hairMeta.img}
             alt=""
-            className="pointer-events-none absolute inset-0 -scale-x-100"
-            style={{
-              opacity: 0.92,
-              transformOrigin: "0 0",
-              transform: overlayTransform ?? undefined,
-            }}
+            style={{ width: hairMeta.size.w, height: hairMeta.size.h, opacity: 0.92 }}
             onError={() => setOverlayOk(false)}
           />
-        )}
+
+          {/* ✅ 앵커 점 표시 */}
+          <div
+            style={{
+              position: "absolute",
+              left: hairMeta.anchor.x - 4,
+              top: hairMeta.anchor.y - 4,
+              width: 8,
+              height: 8,
+              borderRadius: 9999,
+              background: "red",
+            }}
+          />
+        </div>
+      )}
 
         <canvas
           ref={canvasRef}
@@ -126,6 +159,10 @@ export default function FaceLandmarksViewHair({
         <pre className="mt-2 max-h-44 overflow-auto whitespace-pre-wrap rounded bg-black/40 p-2 text-xs leading-5">
           {lmText}
         </pre>
+        <div className="opacity-80">
+      hair pos:{" "}
+      <b>{hairPos ? `x=${hairPos.x.toFixed(1)}, y=${hairPos.y.toFixed(1)}` : "-"}</b>
+    </div>
       </div>
     </div>
   );
