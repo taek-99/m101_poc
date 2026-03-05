@@ -5,7 +5,7 @@ import { useFaceLandmarker } from "@/hooks/post/useFaceLandmarker";
 import { useFaceTrackingLoopBald } from "@/hooks/bald/useFaceTrackingLoopBald";
 import FaceLandmarksViewBald from "@/components/bald/FaceLandmarksViewBald";
 
-export default function FaceLandmarks() {
+export default function Bald() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const threeCanvasRef = useRef<HTMLCanvasElement | null>(null); // ✅ 추가
