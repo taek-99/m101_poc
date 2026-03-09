@@ -4,33 +4,13 @@ import { useOverlayTransform, type NLM } from "@/hooks/hair/useOverlayTransform"
 
 const hairMeta = {
   img: "/hair/0.png",
-  size: { w: 300, h: 300 },
-  anchor: { x: 150, y: 280 },
+  size: { w: 501, h: 457 },
+  anchor: { x: 250, y: 280 },
   baseEyePx: 220,
-  offsetPx: { x: -850, y: 40 },
+  offsetPx: { x: -900, y: 40 },
 };
 
 type PoseNorm = { x: number; y: number; z: number };
-
-/**
- * 좌우 crop 비율
- * 예: 0.18이면 왼쪽 18%, 오른쪽 18% 잘라냄
- */
-const CROP_LEFT = 0.18;
-const CROP_RIGHT = 0.18;
-
-function clamp01(v: number) {
-  return Math.max(0, Math.min(1, v));
-}
-
-/**
- * 원본 normalized x(0~1)를
- * 잘라낸 새 viewport 기준 x(0~1)로 변환
- */
-function cropX(x: number, leftCut: number, rightCut: number) {
-  const visible = 1 - leftCut - rightCut;
-  return clamp01((x - leftCut) / visible);
-}
 
 function buildFramePayload(
   userId: string,
@@ -82,29 +62,16 @@ export default function FaceLandmarksViewHair({
 
   const overlaySrc = useMemo(() => {
     if (hash == null) return null;
-    return "/hair/0.png";
+    return `/hair/0.png`;
   }, [hash]);
 
   const [overlayOk, setOverlayOk] = useState(true);
   useEffect(() => setOverlayOk(true), [overlaySrc]);
 
-  /**
-   * overlay 계산용 landmark
-   * -> crop된 viewport 기준 x로 재매핑
-   */
-  const croppedLandmarks = useMemo(() => {
-    if (!landmarks) return null;
-
-    return landmarks.map((lm) => ({
-      ...lm,
-      x: cropX(lm.x, CROP_LEFT, CROP_RIGHT),
-    }));
-  }, [landmarks]);
-
   const overlayTransform = useOverlayTransform({
     wrapRef,
     videoRef,
-    landmarks: croppedLandmarks,
+    landmarks,
     baseEyePx: hairMeta.baseEyePx,
     pngAnchor: hairMeta.anchor,
     offsetPx: hairMeta.offsetPx,
@@ -127,7 +94,6 @@ export default function FaceLandmarksViewHair({
 
     const send = async () => {
       try {
-        // console.log(JSON.stringify(payload));
         // await fetch("/api/frame", {
         //   method: "POST",
         //   headers: {
@@ -151,48 +117,20 @@ export default function FaceLandmarksViewHair({
 
     return [
       `landmarks: ${landmarks.length}`,
-      ` 10 (이마): x=${forehead.x.toFixed(4)} y=${forehead.y.toFixed(4)} z=${(
-        forehead.z ?? 0
-      ).toFixed(4)}`,
+      ` 10 (이마): x=${forehead.x.toFixed(4)} y=${forehead.y.toFixed(4)} z=${(forehead.z ?? 0).toFixed(4)}`,
     ].join("\n");
   }, [landmarks]);
 
-  /**
-   * video/canvas를 같이 crop해서 보여주기 위한 style
-   * 보이는 영역 = 1 - CROP_LEFT - CROP_RIGHT
-   */
-  const visibleRatio = 1 - CROP_LEFT - CROP_RIGHT;
-  const zoomPercent = 100 / visibleRatio;
-  const shiftPercent = (CROP_LEFT / visibleRatio) * 100;
-
   return (
     <div className="grid place-items-center">
-      <div
-        ref={wrapRef}
-        className="relative w-[min(900px,95vw)] overflow-hidden bg-black"
-      >
-        {/* video + canvas는 같은 crop 레이어 안에 넣어서 같이 잘리게 */}
-        <div
-          className="relative"
-          style={{
-            width: `${zoomPercent}%`,
-            marginLeft: `-${shiftPercent}%`,
-          }}
-        >
-          <video
-            ref={videoRef}
-            playsInline
-            muted
-            className="block h-auto w-full -scale-x-100"
-          />
+      <div ref={wrapRef} className="relative w-[min(900px,95vw)]">
+        <video
+          ref={videoRef}
+          playsInline
+          muted
+          className="h-auto w-full -scale-x-100"
+        />
 
-          <canvas
-            ref={canvasRef}
-            className="pointer-events-none absolute inset-0 h-full w-full -scale-x-100"
-          />
-        </div>
-
-        {/* overlay는 crop된 viewport 기준으로 따로 계산 */}
         {overlaySrc && overlayOk && overlayTransform && (
           <div
             className="pointer-events-none absolute left-0 top-0 -scale-x-100"
@@ -222,6 +160,11 @@ export default function FaceLandmarksViewHair({
             />
           </div>
         )}
+
+        <canvas
+          ref={canvasRef}
+          className="pointer-events-none absolute inset-0 h-full w-full -scale-x-100"
+        />
       </div>
 
       <div className="mt-3 w-[min(900px,95vw)] rounded-lg border bg-black/60 px-4 py-2 text-sm text-white">
@@ -258,14 +201,7 @@ export default function FaceLandmarksViewHair({
 
         <div className="opacity-80">
           hair pos:{" "}
-          <b>
-            {hairPos ? `x=${hairPos.x.toFixed(1)}, y=${hairPos.y.toFixed(1)}` : "-"}
-          </b>
-        </div>
-
-        <div className="opacity-80">
-          crop: <b>left {Math.round(CROP_LEFT * 100)}%</b>,{" "}
-          <b>right {Math.round(CROP_RIGHT * 100)}%</b>
+          <b>{hairPos ? `x=${hairPos.x.toFixed(1)}, y=${hairPos.y.toFixed(1)}` : "-"}</b>
         </div>
       </div>
     </div>
