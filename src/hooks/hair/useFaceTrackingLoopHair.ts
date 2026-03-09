@@ -175,7 +175,7 @@ export function useFaceTrackingLoopHair({
       drawLandmarks(canvas, lms ?? []);
 
       if (lms) {
-        drawRedPoints(canvas, lms, [1, 33, 263, 61, 291, 10, 152]);
+        drawRedPoints(canvas, lms, [10]);
       }
     };
 
