@@ -171,7 +171,7 @@ export default function FaceLandmarksViewPoc({
     <div className="grid h-screen w-screen place-items-center overflow-hidden">
       <div
         ref={wrapRef}
-        className="relative h-screen w-[min(60vh,75vw)] overflow-hidden bg-black"
+        className="relative h-screen w-[430px] overflow-hidden bg-black"
       >
         <video
           ref={videoRef}
