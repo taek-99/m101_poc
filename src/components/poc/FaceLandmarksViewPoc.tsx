@@ -79,8 +79,21 @@ const HAIR_ITEMS: HairItem[] = [
   },
 ];
 
+function norm360(v: number) {
+  return ((Math.round(v) % 360) + 360) % 360;
+}
+
+function makeAngleHash(poseNorm: PoseNorm) {
+  const x = norm360(poseNorm.x);
+  const y = norm360(poseNorm.y);
+  const z = norm360(poseNorm.z);
+
+  return x * 360 ** 2 + y * 360 + z;
+}
+
 function buildFramePayload(
   userId: string,
+  frameId: number,
   poseNorm: PoseNorm | null,
   landmarks: PoseNorm[] | null
 ) {
@@ -88,8 +101,12 @@ function buildFramePayload(
     return null;
   }
 
+  const angleHash = makeAngleHash(poseNorm);
+
   return {
     user_id: userId,
+    frame_id: frameId,
+    angle_hash: angleHash,
     angle: {
       pitch: poseNorm.x,
       yaw: poseNorm.y,
@@ -120,6 +137,7 @@ export default function FaceLandmarksViewPoc({
   landmarks: PoseNorm[] | null;
 }) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const frameIdRef = useRef(0);
   const userId = "user-123";
 
   const [appliedHairId, setAppliedHairId] = useState(0);
@@ -153,12 +171,15 @@ export default function FaceLandmarksViewPoc({
   }, [pendingHairId]);
 
   useEffect(() => {
-    const payload = buildFramePayload(userId, poseNorm, landmarks);
+    const nextFrameId = frameIdRef.current + 1;
+    frameIdRef.current = nextFrameId;
+
+    const payload = buildFramePayload(userId, nextFrameId, poseNorm, landmarks);
     if (!payload) return;
 
     const send = async () => {
       try {
-        // console.log(JSON.stringify(payload));
+        // console.log("payload:", JSON.stringify(payload, null, 2));
       } catch (err) {
         console.error("frame 전송 실패:", err);
       }

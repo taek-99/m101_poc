@@ -136,7 +136,7 @@ export default function FaceLandmarksViewHair({
             className="pointer-events-none absolute left-0 top-0 -scale-x-100"
             style={{ transformOrigin: "0 0", transform: overlayTransform }}
           >
-            <img
+            {/* <img
               src={hairMeta.img}
               alt=""
               style={{
@@ -145,7 +145,7 @@ export default function FaceLandmarksViewHair({
                 opacity: 0.92,
               }}
               onError={() => setOverlayOk(false)}
-            />
+            /> */}
 
             <div
               style={{
