@@ -106,6 +106,10 @@ function buildFramePayload(
   return {
     user_id: userId,
     frame_id: frameId,
+    camera: {
+      w: 1270,
+      h: 720,
+    },
     angle_hash: angleHash,
     angle: {
       pitch: poseNorm.x,
@@ -122,6 +126,83 @@ function buildFramePayload(
       y: lm.y,
       z: lm.z ?? 0,
     })),
+  };
+}
+
+type FramePayload = NonNullable<ReturnType<typeof buildFramePayload>>;
+
+async function createDebugFrameCapture(
+  videoEl: HTMLVideoElement | null,
+  payload: FramePayload | null
+) {
+  if (!videoEl || !payload) return null;
+
+  const width = videoEl.videoWidth || payload.camera.w;
+  const height = videoEl.videoHeight || payload.camera.h;
+  if (!width || !height) {
+    throw new Error("카메라 프레임 크기를 확인할 수 없습니다.");
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("2D canvas context 생성 실패");
+  }
+
+  // 화면처럼 좌우반전된 상태로 저장하고 싶으면 이 코드 유지
+  ctx.translate(width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(videoEl, 0, 0, width, height);
+
+  const imageBlob: Blob = await new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error("프레임 캡쳐 실패"));
+          return;
+        }
+        resolve(blob);
+      },
+      "image/jpeg",
+      0.92
+    );
+  });
+
+  const frameId = payload.frame_id;
+  const baseName = `frame_${String(frameId).padStart(6, "0")}`;
+  const imageFileName = `${baseName}.jpg`;
+  const payloadFileName = `${baseName}.json`;
+
+  const download = () => {
+    const imageUrl = URL.createObjectURL(imageBlob);
+    const imageAnchor = document.createElement("a");
+    imageAnchor.href = imageUrl;
+    imageAnchor.download = imageFileName;
+    imageAnchor.click();
+    URL.revokeObjectURL(imageUrl);
+
+    const payloadBlob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    const payloadUrl = URL.createObjectURL(payloadBlob);
+    const payloadAnchor = document.createElement("a");
+    payloadAnchor.href = payloadUrl;
+    payloadAnchor.download = payloadFileName;
+    payloadAnchor.click();
+    URL.revokeObjectURL(payloadUrl);
+  };
+
+  return {
+    frameId,
+    width,
+    height,
+    imageBlob,
+    imageFileName,
+    payloadFileName,
+    download,
   };
 }
 
@@ -143,6 +224,8 @@ export default function FaceLandmarksViewPoc({
   const [appliedHairId, setAppliedHairId] = useState(0);
   const [pendingHairId, setPendingHairId] = useState<number | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+
+  const [isDebugCapturing, setIsDebugCapturing] = useState(false);
 
   const displayHairId = pendingHairId ?? appliedHairId;
 
@@ -170,6 +253,14 @@ export default function FaceLandmarksViewPoc({
     setModalOpen(false);
   }, [pendingHairId]);
 
+  const handleDebugStart = useCallback(() => {
+    setIsDebugCapturing(true);
+  }, []);
+
+  const handleDebugStop = useCallback(() => {
+    setIsDebugCapturing(false);
+  }, []);
+
   useEffect(() => {
     const nextFrameId = frameIdRef.current + 1;
     frameIdRef.current = nextFrameId;
@@ -179,17 +270,22 @@ export default function FaceLandmarksViewPoc({
 
     const send = async () => {
       try {
-        // console.log("payload:", JSON.stringify(payload, null, 2));
+        console.log("payload:", JSON.stringify(payload, null, 2));
+
+        if (isDebugCapturing) {
+          const capture = await createDebugFrameCapture(videoRef.current, payload);
+          capture?.download();
+        }
       } catch (err) {
         console.error("frame 전송 실패:", err);
       }
     };
 
     send();
-  }, [poseNorm, landmarks]);
+  }, [poseNorm, landmarks, videoRef, isDebugCapturing]);
 
   return (
-    <div className="grid h-screen w-screen place-items-center overflow-hidden">
+    <div className="grid h-screen w-screen place-items-center overflow-hidden bg-neutral-900">
       <div
         ref={wrapRef}
         className="relative h-screen w-[430px] overflow-hidden bg-black"
@@ -205,6 +301,26 @@ export default function FaceLandmarksViewPoc({
           ref={canvasRef}
           className="pointer-events-none absolute inset-0 h-full w-full -scale-x-100"
         />
+
+        <div className="absolute left-3 top-3 z-30 flex gap-2">
+          <button
+            type="button"
+            onClick={handleDebugStart}
+            disabled={isDebugCapturing}
+            className="rounded-lg bg-green-500 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            캡쳐 시작
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDebugStop}
+            disabled={!isDebugCapturing}
+            className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            캡쳐 종료
+          </button>
+        </div>
 
         <HairSelector
           items={HAIR_ITEMS}
