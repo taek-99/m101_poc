@@ -107,7 +107,7 @@ function buildFramePayload(
     user_id: userId,
     frame_id: frameId,
     camera: {
-      w: 1270,
+      w: 1280,
       h: 720,
     },
     angle_hash: angleHash,
@@ -267,10 +267,15 @@ export default function FaceLandmarksViewPoc({
 
     const payload = buildFramePayload(userId, nextFrameId, poseNorm, landmarks);
     if (!payload) return;
+    console.log("실제 카메라 원본 크기:", {
+    videoWidth: videoRef.current?.videoWidth,
+    videoHeight: videoRef.current?.videoHeight,
+  });
+
 
     const send = async () => {
       try {
-        console.log("payload:", JSON.stringify(payload, null, 2));
+        // console.log("payload:", JSON.stringify(payload, null, 2));
 
         if (isDebugCapturing) {
           const capture = await createDebugFrameCapture(videoRef.current, payload);
